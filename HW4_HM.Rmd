@@ -1,0 +1,96 @@
+---
+title: "Homework 4"
+output: html_notebook
+author: Hannah Marr
+---
+
+II. R
+
+6. Create a boxplot of the distribution of Plain pizza prices over the years using the cleaned dataset pizza data from class. Then, create a histogram displaying the frequency of Plain’ pizza prices in 2022. Provide the R code. (2 points)
+
+```{r}
+# Load the necessary libraries for data manipulation and visualization
+library(tidyverse)  # Collection of R packages for data science
+library(tidyr)      # Specifically for tidying data
+library(dplyr)      # For data manipulation (select, filter, group, etc.)
+```
+```{r}
+# Read the pizza data from a CSV file into a dataframe
+pizza_raw_data <- read.csv("/Users/hannahmarr/Desktop/Tufts/DATA200/Labs/Pizza_NYC.csv")
+
+# Select specific columns from the dataset for analysis (Name, location, date, price, and style)
+pizza_data <- pizza_raw_data %>%
+  select(Name, location_lat, location_lng, Date, Year, Price, Style)
+
+# Remove rows with missing values (NAs) to clean the data
+pizza_data <- drop_na(pizza_data)
+
+# Check for any remaining missing values in each column after cleaning
+colSums(is.na(pizza_data))
+
+# Get the dimensions (number of rows and columns) of the cleaned dataset
+dim(pizza_data)
+```
+```{r}
+# Filter the pizza_data dataframe into a new dataframe with only Plain pizza
+style_plain <- pizza_data %>% 
+  filter(Style == 'Plain')
+head(style_plain)
+```
+```{r}
+# Create a boxplot to visualize price of plain pizza by year
+boxplot(style_plain$Price ~ style_plain$Year,
+        main = "Plain Pizza Price by Year",
+        xlab = "Year",
+        ylab = "Price",
+        col = "tomato4",
+        las = 1)
+```
+```{r}
+# Subset the data for the year 2022
+plain_pizza_2022 <- subset(style_plain, Year == 2022)  
+head(plain_pizza_2022)
+```
+```{r}
+# Plot a histogram of the Price column for the year 2022
+hist(plain_pizza_2022$Price,
+      main = "Histogram of Plain Pizza Prices in 2022",
+      xlab = "Price",
+      col = "coral1",  # Fill color for the bars
+      border = "black")  # Border color for the bars
+```
+
+7. Create a subset named pizza pepperoni that only contains Pepperoni pizzas. Group the data by year and calculate the maximum, minimum, and average prices. Then, use a line chart to visualize these trends. You can either create three separate lines for maximum, minimum, and average prices, or combine them into a single chart that includes all three lines. Provide the R code (3 points)
+
+```{r}
+# Subset the data for the style pepperoni
+pizza_pepperoni <- subset(pizza_data, Style == 'Pepperoni')  
+head(pizza_pepperoni)
+```
+
+```{r}
+# Group by year and calculate max, min, and average prices
+pepperoni_stats <- pizza_pepperoni %>%
+  group_by(Year) %>%
+  summarise(
+    max_price = max(Price, na.rm = TRUE),
+    min_price = min(Price, na.rm = TRUE),
+    avg_price = mean(Price, na.rm = TRUE)
+  )
+
+#View the summarized data
+head(pepperoni_stats)
+```
+```{r}
+# Plot the trends
+plot(pepperoni_stats$Year, pepperoni_stats$max_price, type = 'l', col = 'red',
+     ylim = c(min(pepperoni_stats$min_price), max(pepperoni_stats$max_price)),
+     xlab = 'Year', ylab = 'Price', main = 'Pepperoni Pizza Price Trends')
+lines(pepperoni_stats$Year, pepperoni_stats$min_price, type = 'l', col = 'blue')
+lines(pepperoni_stats$Year, pepperoni_stats$avg_price, type = 'l', col = 'green')
+
+# Add a legend
+legend('topright', legend = c('Max Price', 'Min Price', 'Avg Price'),
+       col = c('red', 'blue', 'green'), lty = 1)
+```
+
