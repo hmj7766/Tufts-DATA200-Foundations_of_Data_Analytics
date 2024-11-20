@@ -1,0 +1,190 @@
+---
+title: "Homework 6"
+author: "Hannah Marr"
+output:
+  pdf_document: default
+  html_notebook: default
+---
+
+II - R
+
+You will need to download the ‘Airline customer satisfaction.csv’ dataset. Read the dataset into R and drop the null values before proceeding.
+
+The response variable of interest is: Y = satisfaction
+
+The predictor variables we are interested in are: X1 = Flight.Distance
+X2 = Customer.Type
+X3 = Class
+X4 = Leg.room.service X5 = Seat.comfort
+
+```{r}
+library(tidyverse)
+library(ggplot2)
+library(dplyr)
+
+# Import the dataset
+airline_raw_data <- read.csv("/Users/hannahmarr/Desktop/Tufts/DATA200/Labs/Airline_customer_satisfaction.csv")
+
+# Display the first few rows of the dataframe to inspect the data.
+head(airline_raw_data)
+```
+```{r}
+# Get the dimensions of the dataframe (number of rows and columns).
+dim(airline_raw_data)
+
+# Check for missing values in each column.
+# 'colSums(is.na())' will return the count of missing values for each column.
+colSums(is.na(airline_raw_data))
+
+# Drop rows with any NA values
+airline_raw_data <- na.omit(airline_raw_data)
+
+# Get the dimensions of the dataframe (number of rows and columns).
+dim(airline_raw_data)
+
+# check if there is any null values in the dataset
+any(is.na(airline_raw_data))
+```
+
+1. Create a balanced dataset where the number of ‘satisfied’ and ‘dissatisfied’ customers are equal, including 20,000 samples for each type of ‘satisfaction’. Then check the result to ensure the dataset is properly balanced. Provide the R code. (1 point)
+
+```{r}
+# create a balanced table
+
+# Sample 20000 satisfied
+satisfied_sample <- airline_raw_data %>%
+  filter(satisfaction == "satisfied") %>% # Filter to include only rows where satisfaction is 'satisfied'
+  sample_n(size = 20000) # # Randomly sample 20000 entries from the filtered dataset
+
+# Sample 20000 not satisfied
+not_satisfied_sample <- airline_raw_data %>%
+  filter(satisfaction == "dissatisfied") %>% # Filter to include only rows where satisfaction is 'dissatisfied'
+  sample_n(size = 20000) # Randomly sample 20000 entries from the filtered dataset
+
+# Combine the two samples
+airline_data <- bind_rows(satisfied_sample, not_satisfied_sample)
+
+# Get the dimensions of the combined dataset
+dim(airline_data)
+
+# Calculate the frequency of each satisfaction type in the new combined dataset
+table(airline_data$satisfaction)
+
+# Create a barplot to visually display the frequency of each satisfaction type in the combined dataset
+barplot(
+  table(airline_data$satisfaction),
+  main = "Count of Each Satisfaction Type",
+  xlab = "Satisfaction Type",
+  ylab = "Frequency",
+  col  = "aquamarine3" 
+)
+```
+
+2. Encode the categorical variables into numeric form to prepare them for modeling. After encoding, check your results to ensure the variables are properly transformed. Provide the R code. (2 points)
+
+```{r}
+# Check the re-coded values
+unique(airline_raw_data$satisfaction)
+```
+```{r}
+# Convert satisfaction to numeric by manually assigning numbers to categories
+airline_raw_data$satisfaction_numeric <- as.numeric(factor(airline_raw_data$satisfaction,
+                                      levels = c("dissatisfied", "satisfied"))) - 1
+
+# Check the re-coded values
+unique(airline_raw_data$satisfaction_numeric)
+```
+```{r}
+# Now follow the same process to encode the two predictor variables of interest that are categorical
+unique(airline_raw_data$Customer.Type)
+unique(airline_raw_data$Class)
+```
+```{r}
+# Convert customer type to numeric by manually assigning numbers to categories
+airline_raw_data$customer_type_numeric <- as.numeric(factor(airline_raw_data$Customer.Type,
+                                      levels = c("Loyal Customer", "disloyal Customer")))
+# Convert class to numeric by manually assigning numbers to categories
+airline_raw_data$class_numeric <- as.numeric(factor(airline_raw_data$Class,
+                                      levels = c("Eco", "Business", "Eco Plus")))
+
+# Check the re-coded values
+unique(airline_raw_data$customer_type_numeric)
+unique(airline_raw_data$class_numeric)
+```
+```{r}
+# View first few rows of dataset to check encoded values (last 3 columns of dataset)
+head(airline_raw_data)
+```
+```{r}
+# Drop the columns 'Customer.Type', 'satisfaction', 'Class', and 'Type.of.Travel from airline_data to ensure we only have numeric encoded variables
+airline_data <- airline_raw_data %>%
+  dplyr::select(-Customer.Type, -satisfaction, -Class, -Type.of.Travel)
+
+# View the updated data frame to confirm the columns have been dropped
+print(airline_data)
+```
+
+
+3. Split the data into training and test datasets, using 60% of the data for training and 40% for testing. Build a logistic regression model and an LDA model using the training data. Then evaluate the models on the test data using accuracy as the metric. Provide the R code. (2 points)
+
+```{r}
+# Display column names to ensure correct referencing
+print(names(airline_data))
+```
+```{r}
+# Load necessary libraries
+library(dplyr)
+library(caret)  # for data splitting
+
+# Select relevant columns for training and testing
+data_for_modeling <- airline_data %>%
+  dplyr::select(satisfaction_numeric, Flight.Distance, customer_type_numeric, class_numeric, Leg.room.service, Seat.comfort)
+
+# Split the data into training and testing datasets (60% train, 40% test)
+set.seed(123)  # Set seed for reproducibility
+train_index <- createDataPartition(data_for_modeling$satisfaction_numeric, p = 0.6, list = FALSE)
+train_data <- data_for_modeling[train_index, ]
+test_data <- data_for_modeling[-train_index, ]
+
+# Check the dimensions of the datasets
+cat("Training Data Dimensions: ", dim(train_data), "\n")
+cat("Testing Data Dimensions: ", dim(test_data), "\n")
+
+```
+```{r}
+# Load necessary libraries
+library(dplyr)
+library(caret)  # for data splitting and model evaluation
+library(MASS)   # for LDA
+
+# Build a Logistic Regression model
+logistic_model <- glm(satisfaction_numeric ~ ., data = train_data, family = binomial(link = "logit"))
+
+# Build a LDA model
+lda_model <- lda(satisfaction_numeric ~ ., data = train_data)
+
+# Make predictions on the test data using the Logistic Regression model
+logistic_predictions <- predict(logistic_model, newdata = test_data, type = "response")
+logistic_pred_class <- ifelse(logistic_predictions > 0.5, 1, 0)  # satisfaction_numeric is numeric (0 or 1)
+
+# Make predictions on the test data using the LDA model
+lda_predictions <- predict(lda_model, newdata = test_data)
+lda_pred_class <- lda_predictions$class
+
+# Evaluate accuracy for Logistic Regression model
+logistic_confusion <- confusionMatrix(factor(logistic_pred_class, levels = c(0, 1)), 
+                                      factor(test_data$satisfaction_numeric, levels = c(0, 1)))
+logistic_accuracy <- logistic_confusion$overall['Accuracy']
+
+# Evaluate accuracy for LDA model
+lda_confusion <- confusionMatrix(factor(lda_pred_class, levels = c(0, 1)), 
+                                  factor(test_data$satisfaction_numeric, levels = c(0, 1)))
+lda_accuracy <- lda_confusion$overall['Accuracy']
+
+# Print the accuracies of both models
+cat("Logistic Regression Accuracy: ", logistic_accuracy, "\n")
+cat("LDA Model Accuracy: ", lda_accuracy, "\n")
+```
+
+The two models are quite similar when evaluating accuracy. Logistic regression accuracy is slightly higher, at ~72.02%, while the LDA model is ~71.62% accurate.
+
